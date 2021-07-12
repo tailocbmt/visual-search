@@ -46,18 +46,18 @@ parser.add_argument('--lr',
                     type=float)
 
 def main():
-    # Parse the agurments
-    args = parser.parse_args()
-
-    if not os.path.isdir(args.save_dir):
-        os.makedirs(args.save_dir)
-    
     """
     1. Read dataframe
     2. Load data (normalize, resize, ....)
     3. Split data
     4. Load into Dataloader
     """
+    # Parse the agurments
+    args = parser.parse_args()
+
+    if not os.path.isdir(args.save_dir):
+        os.makedirs(args.save_dir)
+    
     dataframe = pd.read_csv(args.df_path)
     print(dataframe)
     train_deepfashion = DeepFashion(df=dataframe, im_size=(224,224), root_dir=args.img_dir, train=True)
