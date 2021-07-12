@@ -1,8 +1,4 @@
 import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-##################################################
 import torch
 import cv2
 import torchvision
@@ -19,7 +15,41 @@ def pil_loader(element):
     crop = IMG.crop((x1,y1,x2,y2))
     
     return crop.convert('RGB')
-class ImagesDataset(torch.utils.data.Dataset):
+
+def get_transform_embed(im_size, train=False):
+    """
+    Function use for embedding to return method to Resize and Normalize image before feeding it to model
+    Args:
+        im_size: image size to resize image (Ex: 224)
+    
+    Return:
+        transform function which contains Resize and Normalization
+    """
+    if train:
+        return torchvision.transforms.Compose([
+                        torchvision.transforms.Resize(im_size),
+                        torchvision.transforms.RandomHorizontalFlip(p=0.5),
+                        torchvision.transforms.ToTensor()])
+    else:
+        return torchvision.transforms.Compose([
+                        torchvision.transforms.Resize(im_size),
+                        torchvision.transforms.ToTensor()])
+
+# Send train=True fro training transforms and False for val/test transforms
+def get_transform_dectection(train):
+    if train:
+        return A.Compose([
+                     # ToTensorV2 converts image to pytorch tensor without div by 255
+                            ToTensorV2(p=1.0) 
+                        ], bbox_params={'format': 'pascal_voc', 'label_fields': ['labels']})
+    else:
+        return A.Compose([
+                            ToTensorV2(p=1.0)
+                        ], bbox_params={'format': 'pascal_voc', 'label_fields': ['labels']})
+
+class DetectionDataset(torch.utils.data.Dataset):
+    """
+    Class to load Detection dataset"""
     def __init__(self, files_dir, dataframe, width, height, transforms=None):
         self.transforms = transforms
         self.dataframe = dataframe
@@ -27,13 +57,8 @@ class ImagesDataset(torch.utils.data.Dataset):
         self.height = height
         self.width = width
 
-        # sorting the images for consistency
-        # To get images, the extension of the filename is checked to be jpg
         self.imgs = self.dataframe['image_name'].values.tolist()
-
         self.label_list = self.dataframe['category_type'].values.tolist() 
-        # classes: 0 index is reserved for background
-        #self.classes = [_, 'top', 'bottom']
 
     def __getitem__(self, idx):
 
@@ -91,42 +116,25 @@ class ImagesDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.imgs)
 
-# Send train=True fro training transforms and False for val/test transforms
-def get_transform(train):
-    
-    if train:
-        return A.Compose([
-                     # ToTensorV2 converts image to pytorch tensor without div by 255
-                            ToTensorV2(p=1.0) 
-                        ], bbox_params={'format': 'pascal_voc', 'label_fields': ['labels']})
-    else:
-        return A.Compose([
-                            ToTensorV2(p=1.0)
-                        ], bbox_params={'format': 'pascal_voc', 'label_fields': ['labels']})
-
-
-
 class DeepFashion(torch.utils.data.Dataset):
-    """ Custom dataset with triplet sampling, for the tiny image net dataset"""
+    """ Custom dataset with triplet sampling, for the Deep Fashion"""
 
-    def __init__(self, df, root_dir, train, transform=None, loader = pil_loader):
+    def __init__(self, df, im_size, root_dir, train, transform=None, loader = pil_loader):
         """
         Args:
-            csv_file (string): Path to the csv file with annotations.
+            df: Dataframe
             root_dir (string): Directory with all the images.
+            im_size (tuple): image size 
+            train (boolean): True if create train set, False if test set
             transform (callable, optional): Optional transform to be applied
                 on a sample.
+            loader: function to load image
+        Return:
+            Dataset
         """
         if transform == None :
-            if train == True:
-                transform = torchvision.transforms.Compose([
-                                    torchvision.transforms.Resize((224,224)),
-                                    torchvision.transforms.RandomHorizontalFlip(p=0.5),
-                                    torchvision.transforms.ToTensor()])
-            else:
-                transform = torchvision.transforms.Compose([
-                                    torchvision.transforms.Resize((224,224)),
-                                    torchvision.transforms.ToTensor()])
+            transform = get_transform_embed(im_size, train)
+
         self.df = df.copy()
         self.root_dir = root_dir
         self.transform = transform
@@ -155,21 +163,13 @@ class DeepFashion(torch.utils.data.Dataset):
             images.append(temp)
         return (images[0],images[1],images[2]),0
 
-class DatasetDf(torch.utils.data.Dataset):
-    """ Custom dataset with triplet sampling, for the tiny image net dataset"""
+class Shopping100k(torch.utils.data.Dataset):
+    """ Custom dataset to load Shopping100k dataset for testing"""
 
-    def __init__(self, df, root_dir, transform=None, loader = pil_loader):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
+    def __init__(self, df, im_size, root_dir, transform=None, loader = pil_loader):
         if transform == None :
-            transform = torchvision.transforms.Compose([
-                                torchvision.transforms.Resize((300,300)),
-                                torchvision.transforms.ToTensor()])
+            transform = get_transform_embed(im_size)
+
         self.df = df.copy()
         self.root_dir = root_dir
         self.transform = transform
@@ -178,8 +178,8 @@ class DatasetDf(torch.utils.data.Dataset):
         self.df['image_name'] = self.df['image_name'].apply(lambda x: os.path.join(self.root_dir, x))
         
     def _sample(self,idx):
-        p3 = self.df.loc[idx, 'image_name']
-        return p3
+        p = self.df.loc[idx, 'image_name']
+        return p
 
     def __len__(self):
         return len(self.df)
@@ -190,33 +190,6 @@ class DatasetDf(torch.utils.data.Dataset):
         temp = self.loader(path)
         temp = self.transform(temp)
         return temp,0
-
-#############################################################################################################
-# "Deep rank dataloader"
-class DatasetImageNet(torch.utils.data.Dataset):
-    """
-    Dataset class for tiny Image net dataset
-    """
-
-    def __init__(self, data, transform=None):
-        self.data = data
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.data)
-
-
-    def __getitem__(self, index):
-        row = self.data.iloc[index, :].values.tolist()
-        images = [pil_loader(row[0:5]), pil_loader(row[5:10]), pil_loader(row[10:15])]  # open triplet images as RGB
-
-        if self.transform is not None:
-            for i in range(0, 3):
-                images[i] = self.transform(images[i])
-
-        q_image, p_image, n_image = images[0], images[1], images[2]
-
-        return q_image, p_image, n_image
 
 # Calculate accuracy
 def correct_triplet(anchor, positive, negative, size_average=False):

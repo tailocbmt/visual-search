@@ -46,23 +46,23 @@ parser.add_argument('--lr',
                     type=float)
 
 def main():
-    # Agurment
+    # Parse the agurments
     args = parser.parse_args()
 
-    # Device configuration
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print('loading_data...')
-    # Make dir for storing checkpoint
     if not os.path.isdir(args.save_dir):
         os.makedirs(args.save_dir)
-
-    # create data loader
+    
+    """
+    1. Read dataframe
+    2. Load data (normalize, resize, ....)
+    3. Split data
+    4. Load into Dataloader
+    """
     dataframe = pd.read_csv(args.df_path)
     print(dataframe)
-    train_deepfashion = DeepFashion(df=dataframe, root_dir=args.img_dir, train=True)
-    test_deepfashion = DeepFashion(df=dataframe, root_dir=args.img_dir, train=False)
+    train_deepfashion = DeepFashion(df=dataframe, im_size=(224,224), root_dir=args.img_dir, train=True)
+    test_deepfashion = DeepFashion(df=dataframe, im_size=(224,224), root_dir=args.img_dir, train=False)
 
-    # Split for training and testing
     torch.manual_seed(1)
     indices = torch.randperm(len(train_deepfashion)).tolist()
     test_split = 0.3
@@ -70,24 +70,26 @@ def main():
     train_dataset = torch.utils.data.Subset(train_deepfashion, indices[:-tsize])
     test_dataset = torch.utils.data.Subset(test_deepfashion, indices[-tsize:])
 
-    # Load into dataloader
     DATALOADER = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,num_workers=4)
     EVAL_DATALOADER = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,num_workers=4)
     print(train_deepfashion[1][0][0])
     print(train_deepfashion[1][0][0])
+    
+    # configuration
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    #create the model
     MODEL  = get_embed_model(2000)
     MODEL = MODEL.to(DEVICE)
-    MODEL_PATH = None 
+    MODEL_PATH = args.ckpt
     # Once you have trained this model and have a checkpoint, replace None with the path to the checkpoint
     try :
         MODEL.load_state_dict(torch.load(MODEL_PATH))
     except :
-        pass
+        raise ValueError('Cannot load checkpoiht')
 
     # Loss and optimizer
-    OPTIMIZER = torch.optim.SGD(MODEL.parameters(), lr = 0.0001, momentum=0.9)
+    OPTIMIZER = torch.optim.SGD(MODEL.parameters(), lr = args.lr, momentum=0.9)
+    triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
 
     # Function forward
     def forward(x):
@@ -99,15 +101,12 @@ def main():
         for param_group in OPTIMIZER.param_groups:
             param_group['lr'] = lr
 
+    
+    print('begin training')
     LOSS_TR = []
     BIG_L = []
-
-    print('begin training')
-    # Train the model
     TOTAL_STEP = len(DATALOADER)
     CURR_LR = args.lr
-    # define loss
-    triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
 
     print('')
     print('')
@@ -119,18 +118,16 @@ def main():
             P = forward(D[1])
             R = forward(D[2])
             # compute loss
-            loss = triplet_loss(P,Q,R)
+            loss = triplet_loss(Q,P,R)
             # Backward and optimize
             OPTIMIZER.zero_grad()
             loss.backward()
             LOSS_TR.append(loss.item())
             OPTIMIZER.step()
 
-            if (i+1) % 2000 == 0:
-                temp = sum(LOSS_TR)/len(LOSS_TR)
-                print ("Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}".format(epoch+1, args.epoch, i+1, TOTAL_STEP, temp))
-                BIG_L = BIG_L + LOSS_TR
-                LOSS_TR = []
+        print ("Epoch [{}/{}], Loss: {:.4f}".format(epoch+1, args.epoch, i+1, TOTAL_STEP, np.mean(LOSS_TR)))
+        BIG_L = BIG_L + np.mean(LOSS_TR)
+        LOSS_TR = []
 
         # Evaluate on test set
         test_loss = []
@@ -142,23 +139,24 @@ def main():
                 P = forward(D[1])
                 R = forward(D[2])
                 # compute loss
-                loss = triplet_loss(P,Q,R)
+                loss = triplet_loss(Q,P,R)
                 test_loss.append(loss.item())
-            # Compute loss
-            print("Epoch [{}/{}], TEST SET Loss: {:.4f}".format(epoch+1, args.epoch, np.mean(test_loss)))
+            # Print loss
+            print("Epoch [{}/{}], TEST Loss: {:.4f}".format(epoch+1, args.epoch, np.mean(test_loss)))
             test_loss = []
-        # Turn to model train mode:
+        # Turn model back to train mode:
         MODEL.train()
         # Decay learning rate
         if (epoch+1) % 3 == 0:
             CURR_LR /= 1.5
             update_lr(OPTIMIZER, CURR_LR)
 
-        torch.save(MODEL.state_dict(), args.save_dir + '/MRS'+str(epoch+1)+'.pt')
+        # Save model checkpoint
         try :
+            torch.save(MODEL.state_dict(), args.save_dir + '/MRS'+str(epoch+1)+'.pt')
             np.save(args.save_dir+'/loss_file', BIG_L)
         except :
-            pass
+            raise ValueError('Cannot save checkpoint')
 
 if __name__=="__main__":
     main()

@@ -1,28 +1,9 @@
-import os
-import sys
-
-
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-######################################################################
 import cv2
-import torchvision
 from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 
-def get_transform_resnet(im_size):
-    """
-    Function use to return method to Resize and Normalize image before feeding it to model
-    Args:
-        im_size: image size to resize image (Ex: 224)
-    
-    Return:
-        transform function which contains Resize and Normalization
-    """
-    return torchvision.transforms.Compose([
-                    torchvision.transforms.Resize((im_size, im_size)),
-                    torchvision.transforms.ToTensor()])
+
     
 def pil_loader(path, bbox=None):
     """
@@ -88,3 +69,7 @@ def visualize(indexes, dataframe, labels,dir, cols=5):
         plt.tight_layout()
     plt.show()
 
+def create_label_shopping100k(df):
+    df['category_name'] = df['image_name'].apply(lambda x: ' '.join(map(str, x.split('/')[1].split('_')[1:])))
+    labels = df['category_name'].values.tolist()
+    return labels

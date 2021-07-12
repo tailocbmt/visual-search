@@ -8,14 +8,16 @@ import torch
 import argparse
 import pandas as pd
 import numpy as np
-from utils.search_utils import kNN_model, pil_loader, visualize, get_transform_resnet
-from utils.model_utils import DeepRank, get_embed_model
+
+from utils.search_utils import *
+from utils.data_utils import get_transform_embed
+from utils.model_utils import get_embed_model
 #--------------------------------------------------------------------#
 
 # Define variables
 # Function including resize and nomalize
-# transform_embed = get_transform_multinet(224)
-transform_embed = get_transform_resnet(224)
+transform_embed = get_transform_embed((224, 224))
+
 # Argparse 
 parser = argparse.ArgumentParser()
 # Path to the dataframe contains image paths, labels,...
@@ -43,22 +45,29 @@ parser.add_argument('--top',
                     default=4,
                     help='Number of image in the query')                    
 
-def create_label_column(df):
-    df['category_name'] = df['image_name'].apply(lambda x: ' '.join(map(str, x.split('/')[1].split('_')[1:])))
-    labels = df['category_name'].values.tolist()
-    return labels
+
 
 def forward(x, model, device):
     x = x.type('torch.FloatTensor').to(device)
     return(model(x))
 
 def main():
+    """
+    1. read csv
+    2. create labels for visualizing
+    3. read the embeded data
+    4. initialize kNN model
+    5. create model and load model state dict
+    6. read image and run through model
+    7. Find the k nearest vectors
+    8. Visualize
+    """
     # parse the variables
     args = parser.parse_args()
-    # Read_the csv
+    
     df = pd.read_csv(args.df_path)
     # Create the category column
-    labels = create_label_column(df)    
+    labels = create_label_shopping100k(df)    
     
     emb_data = np.load(args.emb_path)
     print(emb_data.shape)
@@ -76,7 +85,6 @@ def main():
     emb_model.load_state_dict(torch.load(args.emb))
     emb_model.eval()
 
-    # Embedding and find the nearest vector (Euclid/ Cosine)
     with torch.no_grad():
         image = pil_loader(args.img)
         # Embedding Resize and convert to tensor
@@ -84,11 +92,9 @@ def main():
         im = torch.unsqueeze(im, 0)
         # Embedding
         emb = forward(im, emb_model, device).cpu().numpy()
-        # selected_emb = selector.transform(emb)
-        # print(selected_emb.shape)
         dist, idx = nn_model.kneighbors(emb, args.top)
     # Visualize images
-    visualize(idx[0], df, labels, args.img_dir,cols=4)
+    visualize(idx[0], df, labels, args.img_dir, cols=4)
 
 if __name__=="__main__":
     main()

@@ -71,5 +71,6 @@ for k in range(71):
     else:
         precision_K.append([k, precision_at_k(resnet1000[:, :k], k), precision_at_k(resnet2000[:, :k], k), precision_at_k(densenet128[:, :k], k)])
         reciprocal.append([k, mean_reciprocal_rank(resnet1000[:, :k]), mean_reciprocal_rank(resnet2000[:, :k]), mean_reciprocal_rank(densenet128[:, :k])])
+        
 pd.DataFrame(precision_K, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\precision_at_K.csv', index=False)
 pd.DataFrame(reciprocal, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\mean_reciprocal_rank.csv', index=False)

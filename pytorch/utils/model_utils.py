@@ -1,31 +1,37 @@
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-##################################################
 import torch
 import torchvision
 import torch.nn as nn
-import torch.nn.functional as f
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchsummary import summary
 
 def get_embed_model(num_classes, name='resnet'):
-
+    """
+    Function use to create embedding model
+    Args:
+        num_classes: output dim
+        name: 'resnet' or 'vgg16bn' type of model
+    Return:
+        Embedding model
+    """
     model = None
     if name == 'resnet':
         model =  torchvision.models.resnet50(pretrained=True)
         num_features = model.fc.in_features
         model.fc = nn.Linear(num_features,num_classes)
-    elif name == 'vgg16':
+    elif name == 'vgg16bn':
         model =  ConvNet_VGG16bn(num_classes)
     return model
 
-def get_fasterCNN_model(num_classes):
-
+def get_fasterRCNN_model(num_classes):
+    """
+    Function use to create Faster R-CNN model
+    Args:
+        num_classes: output dim
+    Return:
+        Faster R-CNN model
+    """
     # load a model pre-trained pre-trained on COCO
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-    
     # get number of input features for the classifier
     in_features = model.roi_heads.box_predictor.cls_score.in_features
     # replace the pre-trained head with a new one
@@ -83,12 +89,13 @@ class ConvNet_VGG16bn(nn.Module):
 class DeepRank(nn.Module):
     """
     Deep Image Rank Architecture
+    Source: https://www.cv-foundation.org/openaccess/content_cvpr_2014/papers/Wang_Learning_Fine-grained_Image_2014_CVPR_paper.pdf
     """
 
     def __init__(self, conv_model=None):
         super(DeepRank, self).__init__()
         if conv_model==None:
-            self.conv_model = ConvNet_VGG16bn()  # ResNet101
+            self.conv_model = ConvNet_VGG16bn() 
         else:
             self.conv_model = conv_model
 
