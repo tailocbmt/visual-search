@@ -9,9 +9,9 @@ Cao Ngoc Hieu
 
 Dataset:
 
-[DeepFashion ConsumerToShop]()
+[DeepFashion ConsumerToShop](https://drive.google.com/drive/folders/17H1pGxo0zDMkUgwwFJLQZDH--mzHNIzO?usp=sharing)
 
-[Shopping100k](https://drive.google.com/file/d/1JSMf8-GL1L_5ZZdvK_Zn6X2Fap4EGC2k/view?usp=sharing)
+[Shopping100k](https://drive.google.com/drive/folders/1IfTsYEGDSYwvsVLb_nj7dvzaqPhZ7m4Q?usp=sharing)
 
 Embedding checkpoint: 
 
