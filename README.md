@@ -19,6 +19,8 @@ Embedding checkpoint:
 
 [Resnet50_2000](https://drive.google.com/file/d/1-KX0ep7t80w2UBJH7eqGDnZfsJrcTbKT/view?usp=sharing)
 
-Developing: T-SNE for visualization
+PCA:
+
+![](https://github.com/tailocbmt/visual-search/blob/master/EDA/images/tsne/tsne.gif)
 
 
