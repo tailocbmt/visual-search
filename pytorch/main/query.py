@@ -38,7 +38,7 @@ parser.add_argument('--emb',
                     help='Path to the embedding model state dict')                    
 # Path to the image
 parser.add_argument('--img',
-                    default='data\\Shopping100k\\Images\\Female\\16_Dresses\\0000185_12.jpg',
+                    default='data\\Shopping100k\\Images\\Female\\15_Skirts\\0071929_10.jpg',
                     help='Path to the query image')
 # Number of image in the query
 parser.add_argument('--top',
@@ -87,6 +87,7 @@ def main():
 
     with torch.no_grad():
         image = pil_loader(args.img)
+
         # Embedding Resize and convert to tensor
         im = transform_embed(image)
         im = torch.unsqueeze(im, 0)
@@ -94,7 +95,7 @@ def main():
         emb = forward(im, emb_model, device).cpu().numpy()
         dist, idx = nn_model.kneighbors(emb, args.top)
     # Visualize images
-    visualize(idx[0], df, labels, args.img_dir, cols=4)
-
+    visualize(idx[0], df, labels, args.img_dir, cols=4, save=False)
+    
 if __name__=="__main__":
     main()

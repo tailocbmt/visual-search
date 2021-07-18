@@ -3,7 +3,6 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 
-
     
 def pil_loader(path, bbox=None):
     """
@@ -37,7 +36,7 @@ def kNN_model(X, k):
     nn_model.fit(X)
     return nn_model
 
-def visualize(indexes, dataframe, labels,dir, cols=5):
+def visualize(indexes, dataframe, labels,dir, cols=5, save=False):
     """
     Use to plot images
     Args:
@@ -49,24 +48,19 @@ def visualize(indexes, dataframe, labels,dir, cols=5):
     Return:
         None
     """
-    plt.rcParams['axes.grid'] = False
-    plt.rcParams['xtick.labelsize'] = False
-    plt.rcParams['ytick.labelsize'] = False
-    plt.rcParams['xtick.top'] = False
-    plt.rcParams['xtick.bottom'] = False
-    plt.rcParams['ytick.left'] = False
-    plt.rcParams['ytick.right'] = False
-    plt.rcParams['figure.figsize'] = [25, 25]
-
-    rows = len(indexes) // cols
+    rows = len(indexes) // cols + 1
     for i in range(len(indexes)):
         image_name = dir + dataframe.loc[indexes[i], 'image_name']
         im = cv2.imread(image_name)
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         plt.subplot(rows, cols,i+1)
+        plt.axis('off')
         plt.imshow(im)
         plt.title(labels[indexes[i]])
-        plt.tight_layout()
+        # plt.tight_layout()
+
+    if save:
+        plt.savefig('query.eps', format='eps', dpi=500)
     plt.show()
 
 def create_label_shopping100k(df):
