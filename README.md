@@ -21,6 +21,6 @@ Embedding checkpoint:
 
 PCA:
 
-![](https://github.com/tailocbmt/visual-search/blob/master/EDA/images/tsne/tsne.gif)
+![](https://github.com/tailocbmt/visual-search/blob/master/EDA/images/tsne/pca_visualization.gif)
 
 
