@@ -1,4 +1,6 @@
 # visual-search
+[Fashion Visual Search Report](https://drive.google.com/file/d/1p2aPj9T4ZcFPKVZF2R07NaHNM_tayDkx/view?usp=sharing)
+
 This project is done by:
 
 Nguyen Tai Loc
