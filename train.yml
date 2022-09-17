@@ -1,0 +1,12 @@
+train_dir: deepfashion2/train/image
+train_df: deepfashion2/train_triplets.csv
+
+val_dir: deepfashion2/val/image
+val_df: deepfashion2/val_triplets.csv
+
+batch_size: 32
+epoch: 20
+lr: 0.0001
+
+ckpt: /content/state_dict_model.pt
+save_dir: fashion-visual-search

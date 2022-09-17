@@ -7,6 +7,13 @@ import numpy as np
 import albumentations as A
 import torch.nn.functional as F
 from albumentations.pytorch.transforms import ToTensorV2
+import yaml
+
+def read_yml(yml_path):
+    with open(yml_path) as file:
+        data = yaml.load(file, Loader=yaml.FullLoader)
+
+    return data
 
 def pil_loader(element):
     path = element[0]
@@ -140,14 +147,14 @@ class DeepFashion(torch.utils.data.Dataset):
         self.transform = transform
         self.loader = loader
             
-        self.df['image_pair_name_1'] = self.df['image_pair_name_1'].apply(lambda x: os.path.join(self.root_dir, x))
-        self.df['image_pair_name_2'] = self.df['image_pair_name_2'].apply(lambda x: os.path.join(self.root_dir, x))
-        self.df['image_name'] = self.df['image_name'].apply(lambda x: os.path.join(self.root_dir, x))
+        self.df['image_name_a'] = self.df['image_name_a'].apply(lambda x: os.path.join(self.root_dir, x))
+        self.df['image_name_p'] = self.df['image_name_p'].apply(lambda x: os.path.join(self.root_dir, x))
+        self.df['image_name_n'] = self.df['image_name_n'].apply(lambda x: os.path.join(self.root_dir, x))
         
     def _sample(self,idx):
-        p1 = self.df.loc[idx, ['image_pair_name_1','x_1_a','y_1_a','x_2_a','y_2_a']].values.tolist()
-        p2 = self.df.loc[idx, ['image_pair_name_2','x_1_p','y_1_p','x_2_p','y_2_p']].values.tolist()
-        p3 = self.df.loc[idx, ['image_name','x_1','y_1','x_2','y_2']].values.tolist()
+        p1 = self.df.loc[idx, ['image_name_a','x_1_a','y_1_a','x_2_a','y_2_a']].values.tolist()
+        p2 = self.df.loc[idx, ['image_name_p','x_1_p','y_1_p','x_2_p','y_2_p']].values.tolist()
+        p3 = self.df.loc[idx, ['image_name_n','x_1_n','y_1_n','x_2_n','y_2_n']].values.tolist()
 
         return [p1, p2, p3]
 

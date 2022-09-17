@@ -14,36 +14,36 @@ from utils.model_utils import get_embed_model
 
 parser = argparse.ArgumentParser()
 # Path to the dataframe contains image paths, labels,...
-parser.add_argument('--df_path', 
-                    default='fashion-visual-search\siamese_pairs_new.csv',
-                    help='Dataframe contains the deep fashion dataset')
+parser.add_argument('--train_cfg', 
+                    default='train.yml',
+                    help='')
 # Directory to the image dir
-parser.add_argument('--img_dir',
-                    default='fashion-visual-search',
-                    help='Root dir to the image dir')
-# Path to the model state dict
-parser.add_argument('--ckpt',
-                    default='/content/state_dict_model.pt',
-                    help='Path to the model state dict')
-# Output path of csv
-parser.add_argument('--save_dir',
-                    default='fashion-visual-search',
-                    help='Path to save file (model, loss log)')
-# Batch size              
-parser.add_argument('--batch_size',
-                    default=32,
-                    help='batch size',
-                    type=int)    
-# Number of epoch              
-parser.add_argument('--epoch',
-                    default=20,
-                    help='Number of epoch to train',
-                    type=int)
-# learning rate
-parser.add_argument('--lr',
-                    default=0.0001,
-                    help='learning rate of optimizer',
-                    type=float)
+# parser.add_argument('--img_dir',
+#                     default='fashion-visual-search',
+#                     help='Root dir to the image dir')
+# # Path to the model state dict
+# parser.add_argument('--ckpt',
+#                     default='/content/state_dict_model.pt',
+#                     help='Path to the model state dict')
+# # Output path of csv
+# parser.add_argument('--save_dir',
+#                     default='fashion-visual-search',
+#                     help='Path to save file (model, loss log)')
+# # Batch size              
+# parser.add_argument('--batch_size',
+#                     default=32,
+#                     help='batch size',
+#                     type=int)    
+# # Number of epoch              
+# parser.add_argument('--epoch',
+#                     default=20,
+#                     help='Number of epoch to train',
+#                     type=int)
+# # learning rate
+# parser.add_argument('--lr',
+#                     default=0.0001,
+#                     help='learning rate of optimizer',
+#                     type=float)
 
 def main():
     """
@@ -54,33 +54,28 @@ def main():
     """
     # Parse the agurments
     args = parser.parse_args()
+    cfg = read_yml(args.train_cfg)
 
-    if not os.path.isdir(args.save_dir):
-        os.makedirs(args.save_dir)
+    if not os.path.isdir(cfg['save_dir']):
+        os.makedirs(cfg['save_dir'])
     
-    dataframe = pd.read_csv(args.df_path)
-    print(dataframe)
-    train_deepfashion = DeepFashion(df=dataframe, im_size=(224,224), root_dir=args.img_dir, train=True)
-    test_deepfashion = DeepFashion(df=dataframe, im_size=(224,224), root_dir=args.img_dir, train=False)
+    train_dataframe = pd.read_csv(cfg['train_df'])
+    val_dataframe = pd.read_csv(cfg['val_df'])
 
-    torch.manual_seed(1)
-    indices = torch.randperm(len(train_deepfashion)).tolist()
-    test_split = 0.3
-    tsize = int(len(train_deepfashion)*test_split)
-    train_dataset = torch.utils.data.Subset(train_deepfashion, indices[:-tsize])
-    test_dataset = torch.utils.data.Subset(test_deepfashion, indices[-tsize:])
+    train_deepfashion = DeepFashion(df=train_dataframe, im_size=(224,224), root_dir=cfg['train_dir'], train=True)
+    test_deepfashion = DeepFashion(df=val_dataframe, im_size=(224,224), root_dir=cfg['val_dir'], train=False)
 
-    DATALOADER = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,num_workers=4)
-    EVAL_DATALOADER = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,num_workers=4)
+    DATALOADER = DataLoader(train_deepfashion, batch_size=cfg['batch_size'], shuffle=True,num_workers=4)
+    EVAL_DATALOADER = DataLoader(test_deepfashion, batch_size=cfg['batch_size'], shuffle=False,num_workers=4)
     print(train_deepfashion[1][0][0])
     print(train_deepfashion[1][0][0])
     
     # configuration
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    MODEL  = get_embed_model(2000)
+    MODEL  = get_embed_model(1000)
     MODEL = MODEL.to(DEVICE)
-    MODEL_PATH = args.ckpt
+    MODEL_PATH = cfg['ckpt']
     # Once you have trained this model and have a checkpoint, replace None with the path to the checkpoint
     try :
         MODEL.load_state_dict(torch.load(MODEL_PATH))
@@ -88,7 +83,7 @@ def main():
         raise ValueError('Cannot load checkpoiht')
 
     # Loss and optimizer
-    OPTIMIZER = torch.optim.SGD(MODEL.parameters(), lr = args.lr, momentum=0.9)
+    OPTIMIZER = torch.optim.SGD(MODEL.parameters(), lr = cfg['lr'], momentum=0.9)
     triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
 
     # Function forward
@@ -106,11 +101,11 @@ def main():
     LOSS_TR = []
     BIG_L = []
     TOTAL_STEP = len(DATALOADER)
-    CURR_LR = args.lr
+    CURR_LR = cfg['lr']
 
     print('')
     print('')
-    for epoch in range(args.epoch):
+    for epoch in range(cfg['epoch']):
         for i, (D, L) in enumerate(DATALOADER):
             print('Batch ',i,end='\r')
             #forward pass
@@ -125,7 +120,7 @@ def main():
             LOSS_TR.append(loss.item())
             OPTIMIZER.step()
 
-        print ("Epoch [{}/{}], Loss: {:.4f}".format(epoch+1, args.epoch, i+1, TOTAL_STEP, np.mean(LOSS_TR)))
+        print ("Epoch [{}/{}], Loss: {:.4f}".format(epoch+1, cfg['epoch'], i+1, TOTAL_STEP, np.mean(LOSS_TR)))
         BIG_L = BIG_L + np.mean(LOSS_TR)
         LOSS_TR = []
 
@@ -142,7 +137,7 @@ def main():
                 loss = triplet_loss(Q,P,R)
                 test_loss.append(loss.item())
             # Print loss
-            print("Epoch [{}/{}], TEST Loss: {:.4f}".format(epoch+1, args.epoch, np.mean(test_loss)))
+            print("Epoch [{}/{}], TEST Loss: {:.4f}".format(epoch+1, cfg['epoch'], np.mean(test_loss)))
             test_loss = []
         # Turn model back to train mode:
         MODEL.train()
@@ -153,8 +148,8 @@ def main():
 
         # Save model checkpoint
         try :
-            torch.save(MODEL.state_dict(), args.save_dir + '/MRS'+str(epoch+1)+'.pt')
-            np.save(args.save_dir+'/loss_file', BIG_L)
+            torch.save(MODEL.state_dict(), cfg['save_dir'] + '/MRS'+str(epoch+1)+'.pt')
+            np.save(cfg['save_dir']+'/loss_file', BIG_L)
         except :
             raise ValueError('Cannot save checkpoint')
 
