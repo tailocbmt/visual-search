@@ -9,6 +9,7 @@ import logging
 import argparse
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 import torch.nn as nn
 from utils.data_utils import *
 from torch.utils.data import DataLoader
@@ -97,7 +98,7 @@ def main():
     print('')
     for epoch in range(1, cfg['epoch']+1):
         logger.info("Epoch {epoch}:".format(epoch=epoch))
-        for i, (IMAGES, L) in enumerate(DATALOADER):
+        for i, (IMAGES, L) in tqdm(enumerate(DATALOADER), desc="Train Epoch {epoch}:"):
             # logger.info('Current batch {batch}/{total_train_step}:'.format(batch=i, total_train_step=total_train_step))
             #forward pass
             anchor = forward(IMAGES[0])
@@ -117,7 +118,7 @@ def main():
         test_loss = []
         MODEL.eval()
         with torch.no_grad():
-            for (IMAGES, L) in EVAL_DATALOADER:
+            for (IMAGES, L) in tqdm(EVAL_DATALOADER, desc="Test Epoch {epoch}:"):
                 # Forward pass
                 anchor = forward(IMAGES[0])
                 positive = forward(IMAGES[1])
