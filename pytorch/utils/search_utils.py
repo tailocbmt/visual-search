@@ -1,9 +1,11 @@
 import cv2
-from PIL import Image
 import matplotlib.pyplot as plt
+import torch
+from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 
-    
+print(torch.cuda.is_available())
+
 def pil_loader(path, bbox=None):
     """
     Function to read image and crop if have bounding box
@@ -50,7 +52,7 @@ def visualize(indexes, dataframe, labels,dir, cols=5, save=False):
     """
     rows = len(indexes) // cols + 1
     for i in range(len(indexes)):
-        image_name = dir + dataframe.loc[indexes[i], 'image_name']
+        image_name = dir + "/"+ dataframe.loc[indexes[i], 'image_name']
         im = cv2.imread(image_name)
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         plt.subplot(rows, cols,i+1)

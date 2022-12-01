@@ -1,17 +1,17 @@
 import os
 import sys
 
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+import argparse
+
+import numpy as np
+import pandas as pd
 ######################################################################
 import torch
-import argparse
-import pandas as pd
-import numpy as np
-
-from utils.search_utils import *
 from utils.data_utils import get_transform_embed
 from utils.model_utils import get_embed_model
+from utils.search_utils import *
+
 #--------------------------------------------------------------------#
 
 # Define variables
@@ -80,10 +80,19 @@ def main():
 
     # Create the embedding model and load checkpoint
     # Turn model to evaluation mode
-    emb_model  = get_embed_model(2000)
-    emb_model = emb_model.to('cuda')
-    emb_model.load_state_dict(torch.load(args.emb))
+    emb_model = get_embed_model(128)
+    emb_model = emb_model.to(device)
+    state_dict = torch.load(args.emb)["state_dict"]
+    
+    new_state_dict = state_dict.copy()
+
+    for old_key, value in state_dict.items():
+      new_state_dict[old_key.replace("net.", "")] = value
+      del new_state_dict[old_key]
+    print(new_state_dict.keys())
+    emb_model.load_state_dict(new_state_dict)
     emb_model.eval()
+
 
     with torch.no_grad():
         image = pil_loader(args.img)
@@ -95,7 +104,7 @@ def main():
         emb = forward(im, emb_model, device).cpu().numpy()
         dist, idx = nn_model.kneighbors(emb, args.top)
     # Visualize images
-    visualize(idx[0], df, labels, args.img_dir, cols=4, save=False)
+    visualize(idx[0], df, labels, args.img_dir, cols=4, save=True)
     
 if __name__=="__main__":
     main()

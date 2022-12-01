@@ -1,13 +1,15 @@
 import os
 import sys
 
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 ######################################################################
 import argparse
-import pandas as pd
+import json
+
 import numpy as np
+import pandas as pd
 from utils.search_utils import kNN_model
+
 #--------------------------------------------------------------------#
 
 # Argparse 
@@ -37,9 +39,8 @@ def main():
     4. Find whether similar attribute image is in the query or not
     5. Save the evaluate
     """
-    similar_attr = open('data\Shopping100k\shorter_sim_attr.txt', 'r')
-    lines = similar_attr.readlines()
-    print(len(lines))
+    # similar_attr = open('data\Shopping100k\shorter_sim_attr.txt', 'r')
+    similar_attr = pd.read_csv("~locnt/code/lightning-hydra-template/data/shopping100k_similar.csv")
 
     emb_data = np.load(args.emb_path)
     print(emb_data.shape)
@@ -47,15 +48,19 @@ def main():
     nn_model = kNN_model(emb_data,args.top)
 
     evaluate = []
-    for line in lines:
-        similar_list = line.split()
+    for query_index, row in similar_attr.iterrows():
+        similar_list = json.loads(row["similar"])
+        # print(type(similar_list))
+        # print(similar_list)
+        if len(similar_list) == 0:
+            continue
         similar_list = [int(i) for i in similar_list]
-        dists, indexes = nn_model.kneighbors(emb_data[similar_list[0],:].reshape(1,- 1), args.top)
+        dists, indexes = nn_model.kneighbors(emb_data[query_index,:].reshape(1,- 1), args.top)
         arr = np.isin(np.asarray(indexes[0]), np.asarray(similar_list)).tolist()
+        print(arr)
         evaluate.append(arr)
 
     np.save(args.save_path + '\evaluate{}.npy'.format(args.top-1), np.asarray(evaluate))
-    similar_attr.close()
     
 if __name__=="__main__":
     main()

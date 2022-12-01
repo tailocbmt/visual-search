@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 
-
 # Precision at K
 def precision_at_k(r, k):
     """Score is precision @ k
@@ -57,20 +56,21 @@ def mean_reciprocal_rank(rs):
     rs = (np.asarray(r).nonzero()[0] for r in rs)
     return np.mean([1. / (r[0] + 1) if r.size else 0. for r in rs])
 
-resnet1000 = np.load('data\\model_inference\\shopping100k\\resnet50_1000\\ckpt5\\evaluate70.npy')[:, 1:]
-resnet2000 = np.load('data\model_inference\shopping100k\Multinet\multinet_resnet50_2000\ckpt4\evaluate70.npy')[:, 1:]
-densenet128 = np.load('data\\model_inference\\shopping100k\\result_emb128\\evaluate70.npy')[:, 1:]
-print(resnet1000.shape)
+resnet1000 = np.load('.\evaluate69.npy')
+# resnet2000 = np.load('data\model_inference\shopping100k\Multinet\multinet_resnet50_2000\ckpt4\evaluate70.npy')[:, 1:]
+# densenet128 = np.load('data\\model_inference\\shopping100k\\result_emb128\\evaluate70.npy')[:, 1:]
+# print(resnet1000.shape)
 
 precision_K = []
 reciprocal = []
 for k in range(71):
     if k == 0:
-        precision_K.append([0, 0, 0, 0])
-        reciprocal.append([0, 0, 0, 0])
+        precision_K.append([0, 0])
+        reciprocal.append([0, 0])
     else:
-        precision_K.append([k, precision_at_k(resnet1000[:, :k], k), precision_at_k(resnet2000[:, :k], k), precision_at_k(densenet128[:, :k], k)])
-        reciprocal.append([k, mean_reciprocal_rank(resnet1000[:, :k]), mean_reciprocal_rank(resnet2000[:, :k]), mean_reciprocal_rank(densenet128[:, :k])])
-        
-pd.DataFrame(precision_K, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\precision_at_K.csv', index=False)
-pd.DataFrame(reciprocal, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\mean_reciprocal_rank.csv', index=False)
+        precision_K.append([k, precision_at_k(resnet1000[:, :k], k)])
+        reciprocal.append([k, mean_reciprocal_rank(resnet1000[:, :k])])
+print(precision_K)
+print(reciprocal)
+# pd.DataFrame(precision_K, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\precision_at_K.csv', index=False)
+# pd.DataFrame(reciprocal, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\mean_reciprocal_rank.csv', index=False)

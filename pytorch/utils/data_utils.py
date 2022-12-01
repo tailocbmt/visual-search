@@ -1,13 +1,21 @@
 import os
-import torch
-import cv2
-import torchvision
-from PIL import Image
-import numpy as np
+
 import albumentations as A
+import cv2
+import numpy as np
+import torch
 import torch.nn.functional as F
-from albumentations.pytorch.transforms import ToTensorV2
+import torchvision
 import yaml
+from albumentations.pytorch.transforms import ToTensorV2
+from PIL import Image
+
+mapping = {}
+f = open('list_item_consumer2shop.txt', 'r')
+for i,line in enumerate(f.readlines()):
+    if i == 0:
+        continue
+    mapping[line.rstrip('\n')] = i
 
 def read_yml(yml_path):
     with open(yml_path) as file:
@@ -40,7 +48,8 @@ def get_transform_embed(im_size, train=False):
     else:
         return torchvision.transforms.Compose([
                         torchvision.transforms.Resize(im_size),
-                        torchvision.transforms.ToTensor()])
+                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
 # Send train=True fro training transforms and False for val/test transforms
 def get_transform_dectection(train):
@@ -197,6 +206,43 @@ class Shopping100k(torch.utils.data.Dataset):
         temp = self.loader(path)
         temp = self.transform(temp)
         return temp,0
+
+class DeepFashionGallery(torch.utils.data.Dataset):
+    """ Custom dataset to load Shopping100k dataset for testing"""
+
+    def __init__(self, df, im_size, root_dir, transform=None, loader = pil_loader, source_type=1):
+        if transform == None :
+            transform = get_transform_embed(im_size)
+
+        self.df = df.copy()
+        self.root_dir = root_dir
+        self.transform = transform
+        self.loader = loader
+        self.mapping = mapping
+
+        
+        self.df = self.df.loc[self.df['source_type'] == source_type, :].reset_index(drop=True)    
+        print(self.df)
+        self.df['image_name'] = self.df['image_name'].apply(lambda x: os.path.join(self.root_dir, x))
+        self.df['label'] = self.df['image_name'].apply(lambda x: x.split('/')[4])
+        print(self.df['label'])
+        print(mapping)
+        
+    def _sample(self,idx):
+        p = self.df.loc[idx, ['image_name', 'x_1', 'y_1', 'x_2', 'y_2','label']].values.tolist()
+        return p
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        path = self._sample(idx)
+        print()
+        
+        label = self.mapping[path[5]]
+        temp = self.loader(path[:5])
+        temp = self.transform(temp)
+        return temp, label
 
 # Calculate accuracy
 def correct_triplet(anchor, positive, negative, size_average=False):
