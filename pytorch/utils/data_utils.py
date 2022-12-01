@@ -3,6 +3,7 @@ import os
 import albumentations as A
 import cv2
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 import torchvision
@@ -243,6 +244,105 @@ class DeepFashionGallery(torch.utils.data.Dataset):
         temp = self.loader(path[:5])
         temp = self.transform(temp)
         return temp, label
+
+class DeepFashionOnlineValidationDataset(Dataset):
+    def __init__(
+        self, datapath, transforms, split: str = "val", val_type: str = "gallery"
+    ):
+        self.split = split
+        self.datapath = datapath
+        self.img_path = os.path.join(self.datapath, self.split, "image")
+        self.val_type = val_type
+        self.transforms = transforms
+        self.img_metadata = self.build_img_metadata()
+
+    def __len__(self):
+        return len(self.img_metadata["image_id"])
+
+    def __getitem__(self, idx):
+        # TODO: check this if data per batch is not loaded correctly
+        path, boxes, pair_id, style = self.sample(idx)
+        img = self.load_frames(path, boxes=boxes)
+        # print("after load frames")
+        # len(triplet_imgs)= 3 ; type(triplet_imgs) = list
+        # type(triplet_imgs[0])=PIL Image
+        img = self.transforms(img)
+        # print(triplet_imgs[0].shape=(3, 224, 224))
+
+        # batch = {
+        # 'images': triplet_imgs, # list(torch.tensor(3, 224, 224)*3)
+        # 'ids': triplet_ids, # nd.array([np.int64, np.int64, np.int64])
+        # }
+        return img, pair_id, style
+
+    def load_frames(self, path, boxes=None):
+        # load images from paths
+        # if boxes, crop corresponding box (x1,y1,x2,y2) from image
+        path = f"{path:06d}.jpg"
+        return self.read_image(path, box=boxes)
+
+    def read_image(self, image_name, box=None):
+        r"""Return RGB image in PIL Image"""
+        temp = Image.open(os.path.join(self.img_path, image_name))
+        image = temp.copy()
+        if box is not None:
+            image = image.crop(box)
+
+        temp.close()
+        return image.convert("RGB")
+
+    def sample(self, idx):
+        """Sample path of triplet of images from the dataset"""
+        # a_path, p_path, n_path = self.img_metadata['image_name'].iloc[idx].values
+        path = self.img_metadata["image_id"][idx]
+        # a_box, p_box, n_box = [self.img_metadata['box'].iloc[idx].values for _ in range(3)]
+        pair_id = self.img_metadata["pair_id"][idx]
+        style = self.img_metadata["style"][idx]
+
+        boxes = self.img_metadata["box"][idx]
+        return path, boxes, pair_id, style
+
+    def build_class_ids(self):
+        """Build a dictionary of class ids"""
+        class_ids = {}
+        for i, class_name in enumerate(self.df["label"].unique()):
+            class_ids[class_name] = i
+        return class_ids
+
+    def build_img_metadata(self):
+        def read_metadata(df):
+            """Return metadata
+            metadata: Dictionary
+                image_name
+                box
+                category_id
+            """
+            metadata = {
+                "image_id": df[f"{self.val_type}_image_id"].values.tolist(),
+                "box": df["bbox"].values.tolist(),
+                "pair_id": df["pair_id"].values.tolist(),
+                "style": df["style"].values.tolist(),
+            }
+            return metadata
+
+        def load_json_as_csv():
+            with open(
+                os.path.join(self.datapath, f"{self.split}_{self.val_type}.json"),
+                encoding="utf-8-sig",
+            ) as f_input:
+                df = pd.read_json(f_input)
+                return df
+
+        self.df = load_json_as_csv()
+
+        img_metadata = {}
+        if self.split in ["val", "test"]:
+            img_metadata.update(read_metadata(self.df))
+        else:
+            raise Exception("Undefined split %s: " % self.split)
+
+        print("Total (%s) images are: %d" % (self.split, len(img_metadata["image_id"])))
+        return img_metadata
 
 # Calculate accuracy
 def correct_triplet(anchor, positive, negative, size_average=False):

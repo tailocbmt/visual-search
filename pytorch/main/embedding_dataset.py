@@ -9,12 +9,12 @@ import pandas as pd
 ##################################################
 import torch
 from torch.autograd import Variable
-from utils.data_utils import DeepFashionGallery
+from utils.data_utils import DeepFashionOnlineValidationDataset
 from utils.model_utils import get_embed_model
 from utils.search_utils import *
 
 # Define variables
-BATCH_SIZE = 400
+BATCH_SIZE = 600
 
 parser = argparse.ArgumentParser()
 # Path to the dataframe contains image paths, labels,...
@@ -43,11 +43,12 @@ def main():
     3. Feed into DataLoader
     """
     df = pd.read_csv(args.df_path, skiprows=1, delimiter = "\s+")
-    eval_dataset = DeepFashionGallery(df, im_size=(224, 224), root_dir=args.img_dir, source_type=1)
-    
+    # eval_dataset = DeepFashionGallery(df, im_size=(224, 224), root_dir=args.img_dir, source_type=1)
+    eval_dataset = DeepFashionOnlineValidationDataset(datapath='', split='val', val_type="gallery")
     evalloader = torch.utils.data.DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
-    query_dataset = DeepFashionGallery(df, im_size=(224, 224), root_dir=args.img_dir, source_type=2)
+    # query_dataset = DeepFashionGallery(df, im_size=(224, 224), root_dir=args.img_dir, source_type=2)
+    query_dataset = DeepFashionOnlineValidationDataset(datapath='', split='val', val_type="query")
     queryloader = torch.utils.data.DataLoader(query_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
     # Device configuration
@@ -79,35 +80,54 @@ def main():
     top_k_acc = 0
     mrr = 0
     total = 0
-
+    class_ids = {}
+    class_count = 0
+    
     with torch.no_grad():
-        for batch_idx, (eval_image, label) in enumerate(evalloader):
-            label_list.append(label)            
+        for batch_idx, (eval_image, pair_ids, styles) in enumerate(evalloader):
+            print(eval_image.shape)
+            print(label.shape)
+            for i in range(len(pair_ids)):
+                label = f"{pair_ids[i]}_{styles[i]}"
+                if label not in class_ids:
+                    class_ids[f"{pair_ids[i]}_{styles[i]}"] = class_count
+                    class_count += 1
+                label_list.append(class_ids[label])
+
             eval_image = Variable(eval_image).cuda()
             emb = emb_model(eval_image)
             embedding = torch.cat((embedding, emb), 0)
             
         embedding = np.delete(embedding.cpu().numpy(), np.s_[:1], axis=0)
-        nn_model = kNN_model(embedding,30)
-        label_list = torch.stack(label_list)
+        nn_model = kNN_model(embedding, 10)
+        label_list = torch.cat(label_list,dim=0)
         print(label_list.shape)
 
-        for batch_idx, (query_image, query_label) in enumerate(queryloader):
+        for batch_idx, (query_image, pair_ids, styles) in enumerate(queryloader):
+            labels = []
+            assert len(pair_ids) == len(styles)
+            for i in range(len(pair_ids)):
+                label = class_ids[f"{pair_ids[i]}_{styles[i]}"]
+                labels.append(label)
+                
             query_image = Variable(query_image).cuda()
             emb = emb_model(query_image)
-            dist, idx = nn_model.kneighbors(emb.cpu(), 20)
-
+            dist, idx = nn_model.kneighbors(emb.cpu(), 10)
+            print(idx.shape)
+            
             for i in range(len(idx)):
-                current_label = query_label[i]
+                current_label = labels[i]
                 current_idx = idx[i, :]
                 gallery_class = label_list[current_idx]
-                    
-                for j in range(len(gallery_class)):
-                    if current_label == gallery_class[j]:
-                        mrr += 1 / (j + 1)
-                        top_k_acc += 1
-                        break
+                
+                print(current_label, gallery_class)
+                isin = (gallery_class == current_label.item()).nonzero()
+                print(isin)
+                if len(isin) > 0:
+                  mrr += 1/ (isin[0].item() + 1)
+                  top_k_acc += 1
                 total += 1
+                print(mrr, top_k_acc, total)
 
     print("TOP 20 ACC: ", top_k_acc / total)
     print("MRR 20: ", mrr / total)
