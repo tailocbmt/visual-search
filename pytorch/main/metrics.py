@@ -56,21 +56,24 @@ def mean_reciprocal_rank(rs):
     rs = (np.asarray(r).nonzero()[0] for r in rs)
     return np.mean([1. / (r[0] + 1) if r.size else 0. for r in rs])
 
-resnet1000 = np.load('.\evaluate69.npy')
+resnet50_all = np.load('evaluate30_resnet50all.npy')[:, 1:]
+# resnet50_hard = np.load('evaluate30_resnet50hard.npy')[:, 1:]
+resnet101_all = np.load('evaluate30_resnet101_all.npy')[:, 1:]
+vgg_all = np.load('evaluate30_vgg.npy')[:, 1:]
 # resnet2000 = np.load('data\model_inference\shopping100k\Multinet\multinet_resnet50_2000\ckpt4\evaluate70.npy')[:, 1:]
 # densenet128 = np.load('data\\model_inference\\shopping100k\\result_emb128\\evaluate70.npy')[:, 1:]
 # print(resnet1000.shape)
 
 precision_K = []
 reciprocal = []
-for k in range(71):
+for k in range(31):
     if k == 0:
         precision_K.append([0, 0])
         reciprocal.append([0, 0])
     else:
-        precision_K.append([k, precision_at_k(resnet1000[:, :k], k)])
-        reciprocal.append([k, mean_reciprocal_rank(resnet1000[:, :k])])
+        precision_K.append([k, precision_at_k(resnet50_all[:, :k], k), precision_at_k(resnet101_all[:, :k], k), precision_at_k(vgg_all[:, :k], k)])
+        reciprocal.append([k, mean_reciprocal_rank(resnet50_all[:, :k]), mean_reciprocal_rank(resnet101_all[:, :k]), mean_reciprocal_rank(vgg_all[:, :k])])
 print(precision_K)
 print(reciprocal)
-# pd.DataFrame(precision_K, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\precision_at_K.csv', index=False)
-# pd.DataFrame(reciprocal, columns=['k', 'resnet50_1000', 'resnet50_2000', 'densenet161_128']).to_csv('fashion-visual-search\src\EDA\metric\mean_reciprocal_rank.csv', index=False)
+pd.DataFrame(precision_K, columns=['k', 'resnet50', 'resnet101', 'vgg16']).to_csv('precision_at_K.csv', index=False)
+pd.DataFrame(reciprocal, columns=['k', 'resnet50', 'resnet101', 'vgg16']).to_csv('mean_reciprocal_rank.csv', index=False)

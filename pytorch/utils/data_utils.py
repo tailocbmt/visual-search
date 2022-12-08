@@ -245,9 +245,9 @@ class DeepFashionGallery(torch.utils.data.Dataset):
         temp = self.transform(temp)
         return temp, label
 
-class DeepFashionOnlineValidationDataset(Dataset):
+class DeepFashionOnlineValidationDataset(torch.utils.data.Dataset):
     def __init__(
-        self, datapath, transforms, split: str = "val", val_type: str = "gallery"
+        self, datapath, transforms=get_transform_embed((224, 224)), split: str = "val", val_type: str = "gallery"
     ):
         self.split = split
         self.datapath = datapath

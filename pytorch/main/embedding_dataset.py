@@ -77,34 +77,37 @@ def main():
     embedding = torch.randn(1,128).type('torch.FloatTensor').to(device)
     label_list = []
 
-    top_k_acc = 0
-    mrr = 0
-    total = 0
+    
     class_ids = {}
     class_count = 0
     
     with torch.no_grad():
         for batch_idx, (eval_image, pair_ids, styles) in enumerate(evalloader):
             print(eval_image.shape)
-            print(label.shape)
             for i in range(len(pair_ids)):
                 label = f"{pair_ids[i]}_{styles[i]}"
+                print(label)
                 if label not in class_ids:
                     class_ids[f"{pair_ids[i]}_{styles[i]}"] = class_count
                     class_count += 1
                 label_list.append(class_ids[label])
 
-            eval_image = Variable(eval_image).cuda()
-            emb = emb_model(eval_image)
-            embedding = torch.cat((embedding, emb), 0)
+        #     eval_image = Variable(eval_image).cuda()
+        #     emb = emb_model(eval_image)
+        #     embedding = torch.cat((embedding, emb), 0)
             
-        embedding = np.delete(embedding.cpu().numpy(), np.s_[:1], axis=0)
-        nn_model = kNN_model(embedding, 10)
-        label_list = torch.cat(label_list,dim=0)
+        # embedding = np.delete(embedding.cpu().numpy(), np.s_[:1], axis=0)
+        # np.save("data_embedding.npy", embedding)
+        embedding = np.load('data_embedding.npy')
+        nn_model = kNN_model(embedding, 30)
+        label_list = torch.Tensor(label_list)
         print(label_list.shape)
 
+        top_k_acc = [0 for i in range(31)]
+        mrr = [0 for i in range(31)]
+        total = 0
         for batch_idx, (query_image, pair_ids, styles) in enumerate(queryloader):
-            labels = []
+            labels = []    
             assert len(pair_ids) == len(styles)
             for i in range(len(pair_ids)):
                 label = class_ids[f"{pair_ids[i]}_{styles[i]}"]
@@ -112,26 +115,33 @@ def main():
                 
             query_image = Variable(query_image).cuda()
             emb = emb_model(query_image)
-            dist, idx = nn_model.kneighbors(emb.cpu(), 10)
-            print(idx.shape)
-            
+            dist, idx = nn_model.kneighbors(emb.cpu(), 30)
+
             for i in range(len(idx)):
                 current_label = labels[i]
-                current_idx = idx[i, :]
-                gallery_class = label_list[current_idx]
+                for k in range(1, 31):
+                    current_idx = idx[i, :k]
+                    gallery_class = label_list[current_idx]
                 
-                print(current_label, gallery_class)
-                isin = (gallery_class == current_label.item()).nonzero()
-                print(isin)
-                if len(isin) > 0:
-                  mrr += 1/ (isin[0].item() + 1)
-                  top_k_acc += 1
+                    # print(current_label, gallery_class)
+                    isin = (gallery_class == current_label).nonzero()
+                    # print(isin)
+                    if len(isin) > 0:
+                        mrr[k] += 1/ (isin[0].item() + 1)
+                        top_k_acc[k] += 1
                 total += 1
-                print(mrr, top_k_acc, total)
-
-    print("TOP 20 ACC: ", top_k_acc / total)
-    print("MRR 20: ", mrr / total)
+                # print(mrr, top_k_acc, total)
                 
+        for k in range(1, 31):
+            print(f"TOP {k} ACC: ", top_k_acc[k] / total)
+            print(f"MRR {k}: ", mrr[k] / total)
+        
+        df = pd.DataFrame()
+        df["k"] = [i for i in range(31)]
+        df["top_k_acc"] = top_k_acc
+        df["mrr"] = mrr
+        df.to_csv("evaluation.csv", index=False)
+            
 
         
     # np.save(args.save_dir+'/data_embeddings',embedding)

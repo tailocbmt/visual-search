@@ -24,7 +24,7 @@ parser.add_argument('--emb_path',
                     help='Path to the embedding dataset')
 # Top K nearest embedding (+1 for the query image)
 parser.add_argument('--top', 
-                    default=71,
+                    default=31,
                     type=int,
                     help='Top K nearest embedding (+1 for the query image)')                    
                     
@@ -48,19 +48,24 @@ def main():
     nn_model = kNN_model(emb_data,args.top)
 
     evaluate = []
-    for query_index, row in similar_attr.iterrows():
-        similar_list = json.loads(row["similar"])
+    total = 26597
+    cnt = 0
+    for row in similar_attr.itertuples():
+        print(cnt)
+        similar_list = json.loads(row.similar)
         # print(type(similar_list))
         # print(similar_list)
         if len(similar_list) == 0:
             continue
         similar_list = [int(i) for i in similar_list]
-        dists, indexes = nn_model.kneighbors(emb_data[query_index,:].reshape(1,- 1), args.top)
+        dists, indexes = nn_model.kneighbors(emb_data[row.Index,:].reshape(1,- 1), args.top)
         arr = np.isin(np.asarray(indexes[0]), np.asarray(similar_list)).tolist()
-        print(arr)
         evaluate.append(arr)
+        cnt += 1
+        if cnt == total:
+            break
 
-    np.save(args.save_path + '\evaluate{}.npy'.format(args.top-1), np.asarray(evaluate))
+    np.save(args.save_path + 'evaluate{}.npy'.format(args.top-1, args.emb_path), np.asarray(evaluate))
     
 if __name__=="__main__":
     main()
